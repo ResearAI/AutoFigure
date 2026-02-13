@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useCallback, useRef } from "react"
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
 import type {
     AutoFigureConfig,
     AutoFigureSession,
@@ -12,6 +12,27 @@ import type {
 } from "@/lib/autofigure-types"
 import { DEFAULT_CONFIG } from "@/lib/autofigure-types"
 import { wrapWithMxFile } from "@/lib/utils"
+
+const STORAGE_CONFIG_KEY = "autofigure-config"
+
+function loadConfigFromStorage(): AutoFigureConfig {
+    if (typeof window === "undefined") return DEFAULT_CONFIG
+    try {
+        const stored = localStorage.getItem(STORAGE_CONFIG_KEY)
+        if (stored) {
+            return { ...DEFAULT_CONFIG, ...JSON.parse(stored) }
+        }
+    } catch {}
+    return DEFAULT_CONFIG
+}
+
+function saveConfigToStorage(config: AutoFigureConfig) {
+    if (typeof window === "undefined") return
+    try {
+        const { inputText, ...toSave } = config
+        localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(toSave))
+    } catch {}
+}
 
 interface AutoFigureContextType {
     // Configuration
@@ -50,8 +71,8 @@ interface AutoFigureContextType {
 const AutoFigureContext = createContext<AutoFigureContextType | undefined>(undefined)
 
 export function AutoFigureProvider({ children }: { children: React.ReactNode }) {
-    // Configuration state
-    const [config, setConfig] = useState<AutoFigureConfig>(DEFAULT_CONFIG)
+    // Configuration state - load from localStorage
+    const [config, setConfig] = useState<AutoFigureConfig>(loadConfigFromStorage)
 
     // Session state
     const [session, setSession] = useState<AutoFigureSession | null>(null)
@@ -80,11 +101,16 @@ export function AutoFigureProvider({ children }: { children: React.ReactNode }) 
     }
 
     const updateConfig = useCallback((updates: Partial<AutoFigureConfig>) => {
-        setConfig(prev => ({ ...prev, ...updates }))
+        setConfig(prev => {
+            const next = { ...prev, ...updates }
+            saveConfigToStorage(next)
+            return next
+        })
     }, [])
 
     const resetConfig = useCallback(() => {
         setConfig(DEFAULT_CONFIG)
+        saveConfigToStorage(DEFAULT_CONFIG)
     }, [])
 
     const clearError = useCallback(() => {
