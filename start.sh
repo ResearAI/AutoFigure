@@ -135,7 +135,13 @@ if check_port $FRONTEND_PORT; then
 fi
 
 # Check Python
-if ! command -v python3 &> /dev/null; then
+if command -v python3 &> /dev/null && python3 --version 2>&1 | grep -q "Python 3"; then
+    PYTHON=python3
+elif command -v python &> /dev/null && python --version 2>&1 | grep -q "Python 3"; then
+    PYTHON=python
+elif command -v py &> /dev/null && py --version 2>&1 | grep -q "Python 3"; then
+    PYTHON=py
+else
     echo -e "${RED}Error: Python 3 is not installed.${NC}"
     exit 1
 fi
@@ -178,7 +184,7 @@ echo -e "${GREEN}Frontend dependencies ready.${NC}"
 # Start backend
 echo -e "${BLUE}[3/4] Starting backend server...${NC}"
 cd "$BACKEND_DIR"
-nohup python3 app.py > "$BACKEND_LOG" 2>&1 &
+nohup $PYTHON app.py > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 echo -e "${GREEN}Backend started (PID: $BACKEND_PID)${NC}"
 echo -e "  Log: $BACKEND_LOG"
