@@ -37,7 +37,7 @@ class LLMClient:
             api_key: API key for the provider
             base_url: Base URL for the API endpoint
             model: Model name to use
-            provider: Provider name (openrouter, bianxie, gemini)
+            provider: Provider name (openrouter, bianxie, gemini, stub)
         """
         self.api_key = api_key
         self.base_url = base_url
@@ -69,6 +69,9 @@ class LLMClient:
         Returns:
             Response text, or None on failure
         """
+        if self.provider == "stub":
+            return "Stub response: Figure generated successfully. This is a placeholder for actual LLM output."
+
         try:
             from openai import OpenAI
 
@@ -133,6 +136,9 @@ class LLMClient:
         Returns:
             Response text, or None on failure
         """
+        if self.provider == "stub":
+            return "Stub response: Methodology extracted successfully. This is a placeholder for actual LLM output."
+
         try:
             from openai import OpenAI
 
