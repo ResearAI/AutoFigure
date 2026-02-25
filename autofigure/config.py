@@ -37,17 +37,17 @@ class Config:
     generation_api_key: str = ""
     generation_base_url: Optional[str] = None
     generation_model: Optional[str] = None
-    generation_provider: str = "openrouter"  # openrouter, bianxie, gemini
+    generation_provider: str = "openrouter"  # openrouter, bianxie, gemini, stub
 
     # Methodology extraction LLM settings (defaults to generation settings)
     methodology_api_key: Optional[str] = None
     methodology_base_url: Optional[str] = None
     methodology_model: Optional[str] = None
-    methodology_provider: Optional[str] = None
+    methodology_provider: Optional[str] = None  # openrouter, bianxie, gemini, stub
 
     # Image enhancement settings
     enhancement_api_key: Optional[str] = None
-    enhancement_provider: str = "openrouter"  # openrouter, bianxie, gemini
+    enhancement_provider: str = "openrouter"  # openrouter, bianxie, gemini, stub
     enhancement_model: Optional[str] = None
     enhancement_base_url: Optional[str] = None
     enhancement_input_type: str = "code2prompt"  # none, code, code2prompt
@@ -99,6 +99,7 @@ class Config:
             "openrouter": "https://openrouter.ai/api/v1",
             "bianxie": "https://api.bianxie.ai/v1",
             "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "stub": "",
         }
         return urls.get(provider, "https://openrouter.ai/api/v1")
 
@@ -108,6 +109,7 @@ class Config:
             "openrouter": "anthropic/claude-sonnet-4",
             "bianxie": "gemini-2.5-pro",
             "gemini": "gemini-2.5-pro",
+            "stub": "",
         }
         return models.get(provider, "anthropic/claude-sonnet-4")
 
@@ -117,6 +119,7 @@ class Config:
             "openrouter": "google/gemini-2.0-flash-exp:free",
             "bianxie": "gemini-2.5-flash-image-preview",
             "gemini": "gemini-2.0-flash-exp",
+            "stub": "",
         }
         return models.get(provider, "google/gemini-2.0-flash-exp:free")
 
@@ -145,8 +148,11 @@ class Config:
         """
         errors = []
 
-        if not self.generation_api_key:
+        if not self.generation_api_key and self.generation_provider != "stub":
             errors.append("generation_api_key is required")
+
+        if self.enhancement_api_key is None and self.enhancement_provider != "stub":
+            errors.append("enhancement_api_key is required when enhancement_provider is not 'stub'")
 
         if self.max_iterations < 1:
             errors.append("max_iterations must be at least 1")
