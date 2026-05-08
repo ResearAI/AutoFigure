@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { X } from "lucide-react"
-import { LLM_PROVIDERS, type LLMProvider } from "@/lib/autofigure-types"
+import { LLM_PROVIDERS, type ApiProtocol, type LLMProvider } from "@/lib/autofigure-types"
 
 interface ImageGenConfig {
     provider: LLMProvider
+    protocol: ApiProtocol
     apiKey: string
     model: string
     baseUrl: string
@@ -46,20 +47,18 @@ export default function ImageGenSettings({
     }
 
     const handleProviderChange = (provider: LLMProvider) => {
-        // Get default base URL based on provider
-        let defaultBaseUrl = 'https://api.bianxie.ai/v1/chat/completions'
-        if (provider === 'openrouter') {
-            defaultBaseUrl = 'https://openrouter.ai/api/v1'
-        } else if (provider === 'gemini') {
-            defaultBaseUrl = 'https://generativelanguage.googleapis.com/v1beta'
-        }
-
         setLocalConfig(prev => ({
             ...prev,
             provider,
-            baseUrl: defaultBaseUrl,
+            protocol: LLM_PROVIDERS[provider].defaultProtocol,
+            baseUrl: LLM_PROVIDERS[provider].defaultBaseUrl,
         }))
     }
+
+    const protocolOptions: { value: ApiProtocol; label: string }[] = [
+        { value: "openai-compatible", label: "OpenAI Compatible" },
+        { value: "gemini-native", label: "Gemini Native" },
+    ]
 
     const getPlaceholders = () => {
         if (localConfig.provider === 'openrouter') {
@@ -149,6 +148,28 @@ export default function ImageGenSettings({
                         >
                             {LLM_PROVIDERS[localConfig.provider]?.description}
                         </p>
+                    </div>
+
+                    {/* Protocol */}
+                    <div>
+                        <label
+                            className="block text-sm font-medium mb-2"
+                            style={{ color: 'var(--af-text-secondary)' }}
+                        >
+                            Protocol
+                        </label>
+                        <select
+                            value={localConfig.protocol}
+                            onChange={e => setLocalConfig(prev => ({ ...prev, protocol: e.target.value as ApiProtocol }))}
+                            className="af-input"
+                            style={{ width: '100%' }}
+                        >
+                            {protocolOptions.map(option => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* API Key */}

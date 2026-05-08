@@ -8,7 +8,7 @@ import {
     Lightbulb,
 } from "lucide-react"
 import { useAutoFigure } from "@/contexts/autofigure-context"
-import { type LLMProvider, LLM_PROVIDERS } from "@/lib/autofigure-types"
+import { type ApiProtocol, type LLMProvider, LLM_PROVIDERS } from "@/lib/autofigure-types"
 
 interface SettingsModalProps {
     isOpen: boolean
@@ -51,6 +51,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const tabs = [
         { id: "general" as const, label: "General", icon: <Lightbulb className="w-4 h-4" /> },
         { id: "llm" as const, label: "LLM", icon: <Cpu className="w-4 h-4" /> },
+    ]
+    const protocolOptions: { value: ApiProtocol; label: string }[] = [
+        { value: "openai-compatible", label: "OpenAI Compatible" },
+        { value: "gemini-native", label: "Gemini Native" },
     ]
 
     return (
@@ -127,6 +131,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                             const provider = e.target.value as LLMProvider
                                                             updateConfig({
                                                                 methodologyLlmProvider: provider,
+                                                                methodologyLlmProtocol: LLM_PROVIDERS[provider].defaultProtocol,
                                                                 methodologyLlmBaseUrl: config.methodologyLlmBaseUrl || LLM_PROVIDERS[provider].defaultBaseUrl,
                                                             })
                                                         }}
@@ -157,6 +162,21 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                                             <div className="af-form-row">
                                                 <div className="af-form-group">
+                                                    <label className="af-label">Protocol</label>
+                                                    <select
+                                                        className="af-input"
+                                                        value={config.methodologyLlmProtocol}
+                                                        onChange={e => updateConfig({ methodologyLlmProtocol: e.target.value as ApiProtocol })}
+                                                    >
+                                                        {protocolOptions.map(option => (
+                                                            <option key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div className="af-form-group">
                                                     <label className="af-label">API Key</label>
                                                     <input
                                                         type="password"
@@ -174,7 +194,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                         name={`methodology-credential-${Date.now()}`}
                                                     />
                                                 </div>
+                                            </div>
 
+                                            <div className="af-form-row">
                                                 <div className="af-form-group">
                                                     <label className="af-label">Base URL (Optional)</label>
                                                     <input
@@ -222,6 +244,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             const provider = e.target.value as LLMProvider
                                             updateConfig({
                                                 llmProvider: provider,
+                                                llmProtocol: LLM_PROVIDERS[provider].defaultProtocol,
                                                 baseUrl: config.baseUrl || LLM_PROVIDERS[provider].defaultBaseUrl,
                                             })
                                         }}
@@ -252,6 +275,21 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                             <div className="af-form-row">
                                 <div className="af-form-group">
+                                    <label className="af-label">Protocol</label>
+                                    <select
+                                        className="af-input"
+                                        value={config.llmProtocol}
+                                        onChange={e => updateConfig({ llmProtocol: e.target.value as ApiProtocol })}
+                                    >
+                                        {protocolOptions.map(option => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="af-form-group">
                                     <label className="af-label">API Key</label>
                                     <input
                                         type="password"
@@ -269,7 +307,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         name={`layout-credential-${Date.now()}`}
                                     />
                                 </div>
+                            </div>
 
+                            <div className="af-form-row">
                                 <div className="af-form-group">
                                     <label className="af-label">Base URL (Optional)</label>
                                     <input

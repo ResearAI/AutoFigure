@@ -2,7 +2,10 @@ import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
     /* config options here */
-    output: "standalone",
+    // Next.js may emit traced chunk filenames containing ":" for standalone output.
+    // Those filenames are invalid on native Windows, so keep standalone packaging for
+    // non-Windows environments and use the normal build output on Windows.
+    output: process.platform === "win32" ? undefined : "standalone",
 
     async rewrites() {
         return [

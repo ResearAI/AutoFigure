@@ -34,6 +34,13 @@ try:
     )
     from autofigure.config import Config
     from autofigure.utils.llm_client import LLMClient
+    from autofigure.utils.api_protocol import (
+        GEMINI_NATIVE,
+        chat_completions_url,
+        default_base_url,
+        normalize_gemini_base_url,
+        normalize_protocol,
+    )
     from autofigure.enhancer import ImageEnhancer, convert_code_to_text2image_prompt
     AUTOFIGURE_AVAILABLE = True
     ENHANCEMENT_AVAILABLE = True
@@ -55,9 +62,11 @@ def extract_methodology(markdown_content: str, config: Dict[str, Any]) -> Option
     try:
         # Support both camelCase (from frontend) and snake_case formats
         provider = config.get('methodologyLlmProvider') or config.get('methodology_llm_provider', 'bianxie')
+        protocol = config.get('methodologyLlmProtocol') or config.get('methodology_llm_protocol')
         api_key = config.get('methodologyLlmApiKey') or config.get('methodology_llm_api_key', '')
         model = config.get('methodologyLlmModel') or config.get('methodology_llm_model', 'gemini-3.1-pro-preview')
         base_url = config.get('methodologyLlmBaseUrl') or config.get('methodology_llm_base_url', '')
+        protocol = normalize_protocol(provider, protocol)
 
         if not api_key:
             print("[AutoFigure] No methodology LLM API key provided, skipping extraction")
@@ -99,19 +108,15 @@ You MUST actively identify and exclude sections that, while related, are not par
 
         # Set default base_url based on provider if not specified
         if not base_url:
-            if provider == 'openrouter':
-                base_url = 'https://openrouter.ai/api/v1'
-            elif provider == 'gemini':
-                base_url = 'https://generativelanguage.googleapis.com/v1beta'
-            else:
-                base_url = 'https://api.bianxie.ai/v1'
+            base_url = default_base_url(provider, protocol)
 
         # Create LLMClient with the configuration
         client = LLMClient(
             api_key=api_key,
             base_url=base_url,
             model=model,
-            provider=provider
+            provider=provider,
+            protocol=protocol,
         )
 
         response = client.call([prompt])
@@ -239,6 +244,7 @@ def reset_autofigure_config():
 
     # Reset LLM provider
     AUTOFIGURE_CONFIG['LLM_PROVIDER'] = 'bianxie'
+    AUTOFIGURE_CONFIG['LLM_PROTOCOL'] = 'openai-compatible'
 
     print("[AutoFigure] AUTOFIGURE_CONFIG reset to default values")
 
@@ -296,6 +302,7 @@ def create_session():
                 'min_improvement': config.get('minImprovement', 0.2),
                 'human_in_loop': config.get('humanInLoop', True),
                 'llm_provider': config.get('llmProvider', 'claude'),
+                'llm_protocol': config.get('llmProtocol'),
                 'api_key': config.get('apiKey', ''),
                 'base_url': config.get('baseUrl', ''),
                 'model': config.get('model', ''),
@@ -304,6 +311,7 @@ def create_session():
                 # Methodology extraction configuration
                 'enable_methodology_extraction': config.get('enableMethodologyExtraction', True),
                 'methodology_llm_provider': config.get('methodologyLlmProvider', 'bianxie'),
+                'methodology_llm_protocol': config.get('methodologyLlmProtocol'),
                 'methodology_llm_api_key': config.get('methodologyLlmApiKey', ''),
                 'methodology_llm_base_url': config.get('methodologyLlmBaseUrl', ''),
                 'methodology_llm_model': config.get('methodologyLlmModel', 'gemini-3.1-pro-preview'),
@@ -370,6 +378,10 @@ def start_generation(session_id: str):
             }), 400
 
         AUTOFIGURE_CONFIG['LLM_PROVIDER'] = config['llm_provider']
+        AUTOFIGURE_CONFIG['LLM_PROTOCOL'] = normalize_protocol(
+            config.get('llm_provider'),
+            config.get('llm_protocol'),
+        )
         AUTOFIGURE_CONFIG['MAX_ITERATIONS'] = config['max_iterations']
         AUTOFIGURE_CONFIG['QUALITY_THRESHOLD'] = config['quality_threshold']
         AUTOFIGURE_CONFIG['MIN_IMPROVEMENT'] = config['min_improvement']
@@ -382,11 +394,10 @@ def start_generation(session_id: str):
         if config['api_key']:
             if config['llm_provider'] == 'gemini':
                 AUTOFIGURE_CONFIG['GOOGLE_API_KEY'] = config['api_key']
-                # Set base URL for Gemini (OpenAI-compatible endpoint)
-                if config.get('base_url'):
-                    AUTOFIGURE_CONFIG['GEMINI_BASE_URL'] = config['base_url']
-                else:
-                    AUTOFIGURE_CONFIG['GEMINI_BASE_URL'] = 'https://generativelanguage.googleapis.com/v1beta'
+                AUTOFIGURE_CONFIG['GEMINI_BASE_URL'] = (
+                    config.get('base_url') or
+                    default_base_url('gemini', AUTOFIGURE_CONFIG['LLM_PROTOCOL'])
+                )
             elif config['llm_provider'] == 'claude':
                 AUTOFIGURE_CONFIG['CLAUDE_API_KEY'] = config['api_key']
                 if config['base_url']:
@@ -408,6 +419,11 @@ def start_generation(session_id: str):
                     AUTOFIGURE_CONFIG['BIANXIE_BASE_URL'] = config['base_url']
             elif config['llm_provider'] == 'aigcbest':
                 AUTOFIGURE_CONFIG['AIGCBEST_API_KEY'] = config['api_key']
+            else:
+                # Custom/OpenAI-compatible providers use the BianXie-compatible slot
+                # because generator.call_unified_llm resolves unknown providers there.
+                AUTOFIGURE_CONFIG['BIANXIE_API_KEY'] = config['api_key']
+                AUTOFIGURE_CONFIG['BIANXIE_BASE_URL'] = config.get('base_url') or ''
 
         if config['model']:
             if config['llm_provider'] == 'gemini':
@@ -422,6 +438,8 @@ def start_generation(session_id: str):
                 AUTOFIGURE_CONFIG['BIANXIE_CHAT_MODEL'] = config['model']
             elif config['llm_provider'] == 'aigcbest':
                 AUTOFIGURE_CONFIG['AIGCBEST_CHAT_MODEL'] = config['model']
+            else:
+                AUTOFIGURE_CONFIG['BIANXIE_CHAT_MODEL'] = config['model']
 
         # Get input content and apply methodology extraction if content type is 'paper'
         input_content = session['input_content']
@@ -464,7 +482,7 @@ def start_generation(session_id: str):
             )
         except Exception as gen_error:
             error_msg = str(gen_error)
-            print(f"[AutoFigure] Generation error: {error_msg}")
+            print(f"[AutoFigure] Generation error: {error_msg}", flush=True)
             with get_session_lock(session_id):
                 session['status'] = 'error'
                 session['error'] = error_msg
@@ -495,7 +513,7 @@ def start_generation(session_id: str):
             else:
                 print(f"[AutoFigure] PNG conversion failed: {error_msg}")
         except Exception as png_error:
-            print(f"[AutoFigure] PNG conversion error: {png_error}")
+            print(f"[AutoFigure] PNG conversion error: {png_error}", flush=True)
 
         # Evaluate initial code (like continue_iteration does for subsequent iterations)
         evaluation = None
@@ -513,7 +531,7 @@ def start_generation(session_id: str):
             quality_score, evaluation = eval_result if eval_result else (0.0, None)
             print(f"[AutoFigure] Initial evaluation complete, score: {quality_score}")
         except Exception as eval_error:
-            print(f"[AutoFigure] Initial evaluation error: {eval_error}")
+            print(f"[AutoFigure] Initial evaluation error: {eval_error}", flush=True)
 
         # Clean up
         if current_png:
@@ -856,6 +874,7 @@ def start_enhancement(session_id: str):
         # User-provided LLM config for code2prompt (required for code2prompt mode)
         enhancement_llm_config = {
             'provider': data.get('enhancement_llm_provider', 'bianxie'),
+            'protocol': data.get('enhancement_llm_protocol'),
             'api_key': data.get('enhancement_llm_api_key', ''),
             'base_url': data.get('enhancement_llm_base_url', ''),
             'model': data.get('enhancement_llm_model', 'gemini-3.1-pro-preview'),
@@ -864,6 +883,7 @@ def start_enhancement(session_id: str):
         # User-provided image generation config (required)
         image_gen_config = {
             'provider': data.get('image_gen_provider', 'bianxie'),
+            'protocol': data.get('image_gen_protocol'),
             'api_key': data.get('image_gen_api_key', ''),
             'base_url': data.get('image_gen_base_url', ''),
             'model': data.get('image_gen_model', ''),
@@ -1082,33 +1102,25 @@ def _run_enhancement(session_id: str, final_xml: str, mode: str, art_style: str,
 
         # Extract LLM config for code2prompt
         llm_provider = enhancement_llm_config.get('provider', 'bianxie')
+        llm_protocol = normalize_protocol(llm_provider, enhancement_llm_config.get('protocol'))
         llm_api_key = enhancement_llm_config.get('api_key', '')
         llm_base_url = enhancement_llm_config.get('base_url', '')
         llm_model = enhancement_llm_config.get('model', 'gemini-3.1-pro-preview')
 
         # Set default base URL for LLM if not specified
         if not llm_base_url:
-            if llm_provider == 'openrouter':
-                llm_base_url = 'https://openrouter.ai/api/v1'
-            elif llm_provider == 'gemini':
-                llm_base_url = 'https://generativelanguage.googleapis.com/v1beta'
-            else:
-                llm_base_url = 'https://api.bianxie.ai/v1'
+            llm_base_url = default_base_url(llm_provider, llm_protocol)
 
         # Extract image generation config
         img_provider = image_gen_config.get('provider', 'bianxie')
+        img_protocol = normalize_protocol(img_provider, image_gen_config.get('protocol'))
         img_api_key = image_gen_config.get('api_key', '')
         img_base_url = image_gen_config.get('base_url', '')
         img_model = image_gen_config.get('model', '')
 
         # Set default base URL for image gen if not specified
         if not img_base_url:
-            if img_provider == 'openrouter':
-                img_base_url = 'https://openrouter.ai/api/v1'
-            elif img_provider == 'gemini':
-                img_base_url = 'https://generativelanguage.googleapis.com/v1beta'
-            else:
-                img_base_url = 'https://api.bianxie.ai/v1'
+            img_base_url = default_base_url(img_provider, img_protocol)
 
         # Step 1: Convert final XML to PNG (layout image for enhancement)
         layout_png_path = None
@@ -1160,7 +1172,8 @@ def _run_enhancement(session_id: str, final_xml: str, mode: str, art_style: str,
                     api_key=llm_api_key,
                     base_url=llm_base_url,
                     model=llm_model,
-                    provider=llm_provider
+                    provider=llm_provider,
+                    protocol=llm_protocol,
                 )
 
                 if text2image_prompt:
@@ -1192,6 +1205,7 @@ def _run_enhancement(session_id: str, final_xml: str, mode: str, art_style: str,
             enhancement_base_url=img_base_url,
             enhancement_model=img_model,
             enhancement_provider=img_provider,
+            enhancement_protocol=img_protocol,
             art_style=art_style,
         )
         enhancer = ImageEnhancer(enhancement_config)
@@ -1298,6 +1312,7 @@ def generate_image():
 
         prompt = data.get('prompt', '').strip()
         provider = data.get('provider', 'bianxie').strip().lower()
+        protocol = normalize_protocol(provider, data.get('protocol'))
         api_key = data.get('api_key', '').strip()
         model = data.get('model', '').strip()
         base_url = data.get('base_url', '').strip()
@@ -1313,7 +1328,7 @@ def generate_image():
             return jsonify({'error': 'Base URL is required'}), 400
 
         _log(f"[AutoFigure] Generating image with prompt: {prompt[:100]}...")
-        _log(f"[AutoFigure] Using provider: {provider}, model: {model}, base_url: {base_url}")
+        _log(f"[AutoFigure] Using provider: {provider}, protocol: {protocol}, model: {model}, base_url: {base_url}")
 
         # Build prompt for icon/image generation
         full_prompt = f"""Generate a high-quality image based on the following description.
@@ -1325,16 +1340,16 @@ Description: {prompt}
 Generate the image now."""
 
         # Route to provider-specific handling
-        if provider == 'openrouter':
-            image_base64, image_format = _generate_image_openrouter(
-                full_prompt, api_key, model, base_url
-            )
-        elif provider == 'gemini':
+        if protocol == GEMINI_NATIVE:
             image_base64, image_format = _generate_image_gemini(
                 full_prompt, api_key, model, base_url
             )
+        elif provider == 'openrouter':
+            image_base64, image_format = _generate_image_openrouter(
+                full_prompt, api_key, model, base_url
+            )
         else:
-            # Default to BianXie
+            # Default/custom OpenAI-compatible path
             image_base64, image_format = _generate_image_bianxie(
                 full_prompt, api_key, model, base_url
             )
@@ -1384,6 +1399,8 @@ def _generate_image_bianxie(prompt: str, api_key: str, model: str, base_url: str
     """
     import re
     import requests
+
+    base_url = chat_completions_url(base_url)
 
     headers = {
         'Content-Type': 'application/json',
@@ -1483,13 +1500,7 @@ def _generate_image_openrouter(prompt: str, api_key: str, model: str, base_url: 
     import requests
     import re
 
-    # Ensure base_url ends with /chat/completions for direct requests
-    # (OpenAI SDK auto-appends this, but we use requests directly)
-    if not base_url.endswith('/chat/completions'):
-        if base_url.endswith('/'):
-            base_url = base_url + 'chat/completions'
-        else:
-            base_url = base_url + '/chat/completions'
+    base_url = chat_completions_url(base_url)
 
     headers = {
         'Content-Type': 'application/json',
@@ -1647,18 +1658,7 @@ def _generate_image_gemini(prompt: str, api_key: str, model: str, base_url: str)
     # Construct Gemini API URL
     # Format: {base_url}/models/{model}:generateContent?key={api_key}
 
-    # Clean up base_url - remove any OpenAI-compatible suffixes that may have been added
-    base_url = base_url.rstrip('/')
-    for suffix in ['/chat/completions', '/completions', '/v1/chat', '/openai']:
-        if base_url.endswith(suffix):
-            base_url = base_url[:-len(suffix)]
-
-    # Ensure base_url ends with /v1beta for Gemini
-    if not base_url.endswith('/v1beta') and 'generativelanguage.googleapis.com' in base_url:
-        if '/v1beta' not in base_url:
-            base_url = base_url.rstrip('/') + '/v1beta'
-
-    api_url = f"{base_url}/models/{model}:generateContent?key={api_key}"
+    api_url = f"{normalize_gemini_base_url(base_url)}/models/{model}:generateContent?key={api_key}"
 
     headers = {
         'Content-Type': 'application/json'

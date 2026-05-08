@@ -18,6 +18,15 @@ from typing import Optional, List, TYPE_CHECKING
 
 import requests
 
+from .utils.api_protocol import (
+    GEMINI_NATIVE,
+    chat_completions_url,
+    default_base_url,
+    normalize_gemini_base_url,
+    normalize_protocol,
+)
+from .utils.llm_client import LLMClient
+
 if TYPE_CHECKING:
     from .config import Config
 
@@ -31,6 +40,7 @@ def convert_code_to_text2image_prompt(
     base_url: str = "",
     model: str = "",
     provider: str = "bianxie",
+    protocol: Optional[str] = None,
 ) -> Optional[str]:
     """
     Convert code (mxgraphxml, HTML, etc.) to text2image prompt using LLM.
@@ -52,8 +62,6 @@ def convert_code_to_text2image_prompt(
         Text2image prompt string, or None on failure
     """
     try:
-        from openai import OpenAI
-
         if not api_key:
             print("[Code2Prompt] ERROR: API key not provided!")
             return None
@@ -183,37 +191,22 @@ For each visual element found in the code, provide:
 
 Now analyze this {code_format.upper()} code and create the comprehensive text-to-image prompt following the exact format above. Focus especially on converting every programmatic element into a specific, detailed visual description that perfectly matches the "{art_style}" artistic style while maintaining visual clarity and professional quality."""
 
-        # Adjust base_url for different providers
-        actual_base_url = base_url
-        if provider == "gemini" and base_url:
-            if not base_url.endswith("/openai/") and not base_url.endswith("/openai"):
-                if base_url.endswith("/"):
-                    actual_base_url = base_url + "openai/"
-                else:
-                    actual_base_url = base_url + "/openai/"
-        elif not actual_base_url:
-            if provider == "openrouter":
-                actual_base_url = "https://openrouter.ai/api/v1"
-            elif provider == "gemini":
-                actual_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-            else:
-                actual_base_url = "https://api.bianxie.ai/v1"
+        effective_protocol = normalize_protocol(provider, protocol)
+        actual_base_url = base_url or default_base_url(provider, effective_protocol)
 
-        print(f"[Code2Prompt] Using provider: {provider}, model: {model}")
+        print(f"[Code2Prompt] Using provider: {provider}, protocol: {effective_protocol}, model: {model}")
 
-        client = OpenAI(base_url=actual_base_url, api_key=api_key)
-
-        completion = client.chat.completions.create(
+        client = LLMClient(
+            api_key=api_key,
+            base_url=actual_base_url,
             model=model,
-            messages=[{"role": "user", "content": conversion_prompt}],
-            temperature=0.7,
+            provider=provider,
+            protocol=effective_protocol,
         )
-
-        if completion and completion.choices:
-            response = completion.choices[0].message.content
-            if response and len(response.strip()) > 0:
-                print(f"[Code2Prompt] Generated prompt length: {len(response)} chars")
-                return response.strip()
+        response = client.call([conversion_prompt], temperature=0.7)
+        if response and len(response.strip()) > 0:
+            print(f"[Code2Prompt] Generated prompt length: {len(response)} chars")
+            return response.strip()
 
         print("[Code2Prompt] LLM returned empty response")
         return None
@@ -303,29 +296,31 @@ class ImageEnhancer:
             output_path = str(input_path.parent / f"{input_path.stem}_enhanced.png")
 
         provider = self.config.enhancement_provider
+        protocol = normalize_protocol(provider, getattr(self.config, "enhancement_protocol", None))
         model = self.config.enhancement_model
         base_url = self.config.enhancement_base_url
         art_style = style or self.config.art_style or ""
 
         print(f"[ImageEnhancer] Provider: {provider}")
+        print(f"[ImageEnhancer] Protocol: {protocol}")
         print(f"[ImageEnhancer] Model: {model}")
         print(f"[ImageEnhancer] Style: {art_style or '(default)'}")
         print(f"[ImageEnhancer] Input type: {input_type}")
 
         # Route to provider-specific function
-        if provider == "openrouter":
-            return self._enhance_with_openrouter(
-                str(input_path), enhancement_input, output_path,
-                style=art_style, input_type=input_type,
-                api_key=api_key, base_url=base_url, model=model
-            )
-        elif provider == "gemini":
+        if protocol == GEMINI_NATIVE:
             return self._enhance_with_gemini(
                 str(input_path), enhancement_input, output_path,
                 style=art_style, input_type=input_type,
                 api_key=api_key, base_url=base_url, model=model
             )
-        else:  # bianxie (default)
+        elif provider == "openrouter":
+            return self._enhance_with_openrouter(
+                str(input_path), enhancement_input, output_path,
+                style=art_style, input_type=input_type,
+                api_key=api_key, base_url=base_url, model=model
+            )
+        else:  # OpenAI-compatible (BianXie/custom/default)
             return self._enhance_with_bianxie(
                 str(input_path), enhancement_input, output_path,
                 style=art_style, input_type=input_type,
@@ -568,12 +563,7 @@ Transform the provided layout into this enhanced visualization now."""
             if not model:
                 model = "gemini-3.1-flash-image-preview"
 
-            actual_base_url = base_url or "https://api.bianxie.ai/v1/chat/completions"
-            if not actual_base_url.endswith("/chat/completions"):
-                if actual_base_url.endswith("/"):
-                    actual_base_url = actual_base_url + "chat/completions"
-                else:
-                    actual_base_url = actual_base_url + "/chat/completions"
+            actual_base_url = chat_completions_url(base_url or "https://api.bianxie.ai/v1")
 
             print(f"[BianXie] API: {actual_base_url}")
             print(f"[BianXie] Model: {model}")
@@ -651,12 +641,7 @@ Transform the provided layout into this enhanced visualization now."""
             if not model:
                 model = "google/gemini-3.1-flash-image-preview"
 
-            actual_base_url = base_url or "https://openrouter.ai/api/v1"
-            if not actual_base_url.endswith("/chat/completions"):
-                if actual_base_url.endswith("/"):
-                    actual_base_url = actual_base_url + "chat/completions"
-                else:
-                    actual_base_url = actual_base_url + "/chat/completions"
+            actual_base_url = chat_completions_url(base_url or "https://openrouter.ai/api/v1")
 
             print(f"[OpenRouter] API: {actual_base_url}")
             print(f"[OpenRouter] Model: {model}")
@@ -738,17 +723,7 @@ Transform the provided layout into this enhanced visualization now."""
             if not base_url:
                 base_url = "https://generativelanguage.googleapis.com/v1beta"
 
-            # Clean up base_url
-            base_url = base_url.rstrip("/")
-            for suffix in ["/chat/completions", "/completions", "/v1/chat", "/openai"]:
-                if base_url.endswith(suffix):
-                    base_url = base_url[:-len(suffix)]
-
-            if not base_url.endswith("/v1beta") and "generativelanguage.googleapis.com" in base_url:
-                if "/v1beta" not in base_url:
-                    base_url = base_url.rstrip("/") + "/v1beta"
-
-            api_url = f"{base_url}/models/{model}:generateContent?key={api_key}"
+            api_url = f"{normalize_gemini_base_url(base_url)}/models/{model}:generateContent?key={api_key}"
 
             print(f"[Gemini] Model: {model}")
             print(f"[Gemini] Input type: {input_type}")

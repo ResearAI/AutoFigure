@@ -49,6 +49,17 @@ interface AutoFigureContextType {
 
 const AutoFigureContext = createContext<AutoFigureContextType | undefined>(undefined)
 
+async function getResponseError(response: Response, fallback: string): Promise<string> {
+    const data = await response.json().catch(() => null)
+    if (data?.error) {
+        return data.error
+    }
+    if (data?.message) {
+        return data.message
+    }
+    return `${fallback}: ${response.statusText}`
+}
+
 export function AutoFigureProvider({ children }: { children: React.ReactNode }) {
     // Configuration state
     const [config, setConfig] = useState<AutoFigureConfig>(DEFAULT_CONFIG)
@@ -118,7 +129,7 @@ export function AutoFigureProvider({ children }: { children: React.ReactNode }) 
             })
 
             if (!response.ok) {
-                throw new Error(`Failed to create session: ${response.statusText}`)
+                throw new Error(await getResponseError(response, "Failed to create session"))
             }
 
             const data = await response.json()
@@ -137,7 +148,7 @@ export function AutoFigureProvider({ children }: { children: React.ReactNode }) 
             )
 
             if (!startResponse.ok) {
-                throw new Error(`Failed to start generation: ${startResponse.statusText}`)
+                throw new Error(await getResponseError(startResponse, "Failed to start generation"))
             }
 
             const startData = await startResponse.json()
@@ -317,11 +328,13 @@ export function AutoFigureProvider({ children }: { children: React.ReactNode }) 
                         variant_count: config.enhancementCount,
                         // User-provided LLM config for code2prompt
                         enhancement_llm_provider: config.enhancementLlmProvider,
+                        enhancement_llm_protocol: config.enhancementLlmProtocol,
                         enhancement_llm_api_key: config.enhancementLlmApiKey,
                         enhancement_llm_base_url: config.enhancementLlmBaseUrl,
                         enhancement_llm_model: config.enhancementLlmModel,
                         // User-provided image generation config
                         image_gen_provider: config.imageGenProvider,
+                        image_gen_protocol: config.imageGenProtocol,
                         image_gen_api_key: config.imageGenApiKey,
                         image_gen_base_url: config.imageGenBaseUrl,
                         image_gen_model: config.imageGenModel,

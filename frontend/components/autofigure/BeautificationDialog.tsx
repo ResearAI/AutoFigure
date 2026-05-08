@@ -13,7 +13,7 @@ import {
     Sparkles,
 } from "lucide-react"
 import { useAutoFigure } from "@/contexts/autofigure-context"
-import { type EnhancementMode, type LLMProvider, LLM_PROVIDERS } from "@/lib/autofigure-types"
+import { type ApiProtocol, type EnhancementMode, type LLMProvider, LLM_PROVIDERS } from "@/lib/autofigure-types"
 
 interface BeautificationDialogProps {
     isOpen: boolean
@@ -45,6 +45,10 @@ export default function BeautificationDialog({
     const canStart = config.artStyle.trim() &&
                      config.imageGenApiKey.trim() &&
                      (selectedMode === 'none' || config.enhancementLlmApiKey.trim())
+    const protocolOptions: { value: ApiProtocol; label: string }[] = [
+        { value: "openai-compatible", label: "OpenAI Compatible" },
+        { value: "gemini-native", label: "Gemini Native" },
+    ]
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -209,13 +213,10 @@ export default function BeautificationDialog({
                                     value={config.imageGenProvider || 'bianxie'}
                                     onChange={e => {
                                         const provider = e.target.value as LLMProvider
-                                        // Gemini uses native API without /chat/completions suffix
-                                        const baseUrl = provider === 'gemini'
-                                            ? LLM_PROVIDERS[provider].defaultBaseUrl
-                                            : LLM_PROVIDERS[provider].defaultBaseUrl + '/chat/completions'
                                         updateConfig({
                                             imageGenProvider: provider,
-                                            imageGenBaseUrl: baseUrl,
+                                            imageGenProtocol: LLM_PROVIDERS[provider].defaultProtocol,
+                                            imageGenBaseUrl: LLM_PROVIDERS[provider].defaultBaseUrl,
                                         })
                                     }}
                                     className="af-input"
@@ -223,6 +224,20 @@ export default function BeautificationDialog({
                                     {Object.entries(LLM_PROVIDERS).map(([key, value]) => (
                                         <option key={key} value={key}>
                                             {value.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="af-form-group">
+                                <label className="af-label">Protocol</label>
+                                <select
+                                    value={config.imageGenProtocol}
+                                    onChange={e => updateConfig({ imageGenProtocol: e.target.value as ApiProtocol })}
+                                    className="af-input"
+                                >
+                                    {protocolOptions.map(option => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
                                         </option>
                                     ))}
                                 </select>
@@ -300,6 +315,7 @@ export default function BeautificationDialog({
                                             const provider = e.target.value as LLMProvider
                                             updateConfig({
                                                 enhancementLlmProvider: provider,
+                                                enhancementLlmProtocol: LLM_PROVIDERS[provider].defaultProtocol,
                                                 enhancementLlmBaseUrl: config.enhancementLlmBaseUrl || LLM_PROVIDERS[provider].defaultBaseUrl,
                                             })
                                         }}
@@ -308,6 +324,20 @@ export default function BeautificationDialog({
                                         {Object.entries(LLM_PROVIDERS).map(([key, value]) => (
                                             <option key={key} value={key}>
                                                 {value.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="af-form-group">
+                                    <label className="af-label">Protocol</label>
+                                    <select
+                                        value={config.enhancementLlmProtocol}
+                                        onChange={e => updateConfig({ enhancementLlmProtocol: e.target.value as ApiProtocol })}
+                                        className="af-input"
+                                    >
+                                        {protocolOptions.map(option => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
                                             </option>
                                         ))}
                                     </select>

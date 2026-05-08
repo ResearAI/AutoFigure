@@ -10,6 +10,8 @@ from typing import Optional, List
 from pathlib import Path
 import os
 
+from .utils.api_protocol import default_base_url, normalize_protocol
+
 
 @dataclass
 class Config:
@@ -38,16 +40,19 @@ class Config:
     generation_base_url: Optional[str] = None
     generation_model: Optional[str] = None
     generation_provider: str = "openrouter"  # openrouter, bianxie, gemini
+    generation_protocol: Optional[str] = None  # openai-compatible, gemini-native
 
     # Methodology extraction LLM settings (defaults to generation settings)
     methodology_api_key: Optional[str] = None
     methodology_base_url: Optional[str] = None
     methodology_model: Optional[str] = None
     methodology_provider: Optional[str] = None
+    methodology_protocol: Optional[str] = None
 
     # Image enhancement settings
     enhancement_api_key: Optional[str] = None
     enhancement_provider: str = "openrouter"  # openrouter, bianxie, gemini
+    enhancement_protocol: Optional[str] = None
     enhancement_model: Optional[str] = None
     enhancement_base_url: Optional[str] = None
     enhancement_input_type: str = "code2prompt"  # none, code, code2prompt
@@ -74,12 +79,18 @@ class Config:
             self.methodology_model = self.generation_model
         if self.methodology_provider is None:
             self.methodology_provider = self.generation_provider
+        if self.generation_protocol is None:
+            self.generation_protocol = normalize_protocol(self.generation_provider)
+        if self.methodology_protocol is None:
+            self.methodology_protocol = self.generation_protocol
+        if self.enhancement_protocol is None:
+            self.enhancement_protocol = normalize_protocol(self.enhancement_provider)
 
         # Set default base URLs based on provider
         if self.generation_base_url is None:
-            self.generation_base_url = self._get_default_base_url(self.generation_provider)
+            self.generation_base_url = self._get_default_base_url(self.generation_provider, self.generation_protocol)
         if self.methodology_base_url is None:
-            self.methodology_base_url = self._get_default_base_url(self.methodology_provider)
+            self.methodology_base_url = self._get_default_base_url(self.methodology_provider, self.methodology_protocol)
 
         # Set default models
         if self.generation_model is None:
@@ -91,16 +102,11 @@ class Config:
         if self.enhancement_model is None:
             self.enhancement_model = self._get_default_enhancement_model(self.enhancement_provider)
         if self.enhancement_base_url is None:
-            self.enhancement_base_url = self._get_default_base_url(self.enhancement_provider)
+            self.enhancement_base_url = self._get_default_base_url(self.enhancement_provider, self.enhancement_protocol)
 
-    def _get_default_base_url(self, provider: str) -> str:
+    def _get_default_base_url(self, provider: str, protocol: Optional[str] = None) -> str:
         """Get default base URL for a provider."""
-        urls = {
-            "openrouter": "https://openrouter.ai/api/v1",
-            "bianxie": "https://api.bianxie.ai/v1",
-            "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        }
-        return urls.get(provider, "https://openrouter.ai/api/v1")
+        return default_base_url(provider, protocol) or "https://openrouter.ai/api/v1"
 
     def _get_default_model(self, provider: str) -> str:
         """Get default model for a provider."""
@@ -182,9 +188,12 @@ class Config:
             generation_base_url=os.environ.get("AUTOFIGURE_BASE_URL"),
             generation_model=os.environ.get("AUTOFIGURE_MODEL"),
             generation_provider=os.environ.get("AUTOFIGURE_PROVIDER", "openrouter"),
+            generation_protocol=os.environ.get("AUTOFIGURE_PROTOCOL"),
             methodology_api_key=os.environ.get("AUTOFIGURE_METHODOLOGY_API_KEY"),
+            methodology_protocol=os.environ.get("AUTOFIGURE_METHODOLOGY_PROTOCOL"),
             enhancement_api_key=os.environ.get("AUTOFIGURE_ENHANCEMENT_API_KEY"),
             enhancement_provider=os.environ.get("AUTOFIGURE_ENHANCEMENT_PROVIDER", "openrouter"),
+            enhancement_protocol=os.environ.get("AUTOFIGURE_ENHANCEMENT_PROTOCOL"),
             enhancement_model=os.environ.get("AUTOFIGURE_ENHANCEMENT_MODEL"),
             enhancement_base_url=os.environ.get("AUTOFIGURE_ENHANCEMENT_BASE_URL"),
             enhancement_input_type=os.environ.get("AUTOFIGURE_ENHANCEMENT_INPUT_TYPE", "code2prompt"),

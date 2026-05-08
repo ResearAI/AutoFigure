@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { useAutoFigure } from "@/contexts/autofigure-context"
 import ImageGenSettings from "./ImageGenSettings"
-import { type LLMProvider } from "@/lib/autofigure-types"
+import { type ApiProtocol, type LLMProvider } from "@/lib/autofigure-types"
 
 interface IterationControlsFloatingProps {
     onContinue: (feedback?: string, score?: number) => void
@@ -55,11 +55,13 @@ export default function IterationControlsFloating({
     const [showSettings, setShowSettings] = useState(false)
     const [imageGenConfig, setImageGenConfig] = useState<{
         provider: LLMProvider
+        protocol: ApiProtocol
         apiKey: string
         model: string
         baseUrl: string
     }>({
         provider: 'bianxie',
+        protocol: 'openai-compatible',
         apiKey: "",
         model: "",
         baseUrl: "",
@@ -161,6 +163,7 @@ export default function IterationControlsFloating({
                 body: JSON.stringify({
                     prompt: prompt.trim(),
                     provider: imageGenConfig.provider,
+                    protocol: imageGenConfig.protocol,
                     api_key: imageGenConfig.apiKey,
                     model: imageGenConfig.model,
                     base_url: imageGenConfig.baseUrl,
@@ -314,7 +317,8 @@ export default function IterationControlsFloating({
                                     onLoadIteration(iteration.xml)
                                 }
                             }}
-                            title={`Iteration ${i + 1}`}
+                            title={`Load iteration ${i + 1} from history`}
+                            aria-label={`Load iteration ${i + 1} from history`}
                         />
                     ))}
                 </div>
@@ -325,7 +329,8 @@ export default function IterationControlsFloating({
                         className="af-icon-btn"
                         onClick={handlePrevious}
                         disabled={currentIterationIndex === 0}
-                        title="Previous iteration"
+                        title="Load the previous generated iteration"
+                        aria-label="Load the previous generated iteration"
                         style={{ width: '32px', height: '32px', opacity: currentIterationIndex === 0 ? 0.5 : 1 }}
                     >
                         <ChevronLeft className="w-4 h-4" />
@@ -334,7 +339,8 @@ export default function IterationControlsFloating({
                         className="af-icon-btn"
                         onClick={handleNext}
                         disabled={currentIterationIndex >= totalIterations - 1}
-                        title="Next iteration"
+                        title="Load the next generated iteration"
+                        aria-label="Load the next generated iteration"
                         style={{ width: '32px', height: '32px', opacity: currentIterationIndex >= totalIterations - 1 ? 0.5 : 1 }}
                     >
                         <ChevronRight className="w-4 h-4" />
@@ -346,6 +352,8 @@ export default function IterationControlsFloating({
                     <button
                         className={`af-btn-secondary ${showFeedback ? 'active' : ''}`}
                         onClick={() => setShowFeedback(!showFeedback)}
+                        title="Open a feedback box to guide the next layout iteration"
+                        aria-label="Open a feedback box to guide the next layout iteration"
                         style={showFeedback ? { borderColor: 'var(--af-accent-primary)', color: 'var(--af-accent-primary)' } : {}}
                     >
                         <MessageSquare className="w-4 h-4 mr-1 inline" />
@@ -356,6 +364,8 @@ export default function IterationControlsFloating({
                         className="af-btn-secondary"
                         onClick={showFeedback ? handleContinueWithFeedback : () => onContinue()}
                         disabled={isGenerating}
+                        title={showFeedback ? "Submit feedback and generate the next layout iteration" : "Generate the next layout iteration from the current canvas"}
+                        aria-label={showFeedback ? "Submit feedback and generate the next layout iteration" : "Generate the next layout iteration from the current canvas"}
                         style={{ opacity: isGenerating ? 0.5 : 1 }}
                     >
                         {isGenerating ? (
@@ -375,6 +385,8 @@ export default function IterationControlsFloating({
                         className="af-btn-primary"
                         onClick={onFinalize}
                         disabled={isGenerating}
+                        title="Finalize the current layout and open the beautification workflow"
+                        aria-label="Finalize the current layout and open the beautification workflow"
                         style={{ opacity: isGenerating ? 0.5 : 1 }}
                     >
                         <Sparkles className="w-4 h-4 mr-1 inline" />
@@ -385,7 +397,8 @@ export default function IterationControlsFloating({
                     <button
                         className="af-icon-btn af-gen-trigger-btn"
                         onClick={() => setMode('generation')}
-                        title="Generate image"
+                        title="Switch to prompt-based image generation and insert the result into the canvas"
+                        aria-label="Switch to prompt-based image generation and insert the result into the canvas"
                         style={{
                             width: '40px',
                             height: '40px',

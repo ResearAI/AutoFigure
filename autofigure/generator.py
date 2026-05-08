@@ -11,6 +11,14 @@ import re
 import webbrowser
 from openai import OpenAI
 
+from .utils.api_protocol import (
+    GEMINI_NATIVE,
+    call_gemini_native_text,
+    default_base_url,
+    normalize_openai_base_url,
+    normalize_protocol,
+)
+
 
 CONFIG = {
     'MAX_ITERATIONS': 5,
@@ -28,6 +36,7 @@ CONFIG = {
     # LLM Configuration
     # =========================
     'LLM_PROVIDER': 'openrouter',  # openrouter, bianxie, gemini
+    'LLM_PROTOCOL': 'openai-compatible',  # openai-compatible, gemini-native
 
     # OpenRouter
     'OPENROUTER_BASE_URL': 'https://openrouter.ai/api/v1',
@@ -65,7 +74,9 @@ def update_config_from_sdk(sdk_config) -> None:
 
     # LLM settings based on provider
     provider = sdk_config.generation_provider
+    protocol = sdk_config.generation_protocol or normalize_protocol(provider)
     CONFIG['LLM_PROVIDER'] = provider
+    CONFIG['LLM_PROTOCOL'] = protocol
 
     if provider == 'openrouter':
         CONFIG['OPENROUTER_API_KEY'] = sdk_config.generation_api_key
@@ -77,8 +88,12 @@ def update_config_from_sdk(sdk_config) -> None:
         CONFIG['BIANXIE_CHAT_MODEL'] = sdk_config.generation_model or 'gemini-3.1-pro-preview'
     elif provider == 'gemini':
         CONFIG['GOOGLE_API_KEY'] = sdk_config.generation_api_key
-        CONFIG['GEMINI_BASE_URL'] = sdk_config.generation_base_url or 'https://generativelanguage.googleapis.com/v1beta/openai/'
+        CONFIG['GEMINI_BASE_URL'] = sdk_config.generation_base_url or default_base_url(provider, protocol)
         CONFIG['GEMINI_MODEL'] = sdk_config.generation_model or 'gemini-3.1-pro-preview'
+    else:
+        CONFIG['BIANXIE_API_KEY'] = sdk_config.generation_api_key
+        CONFIG['BIANXIE_BASE_URL'] = sdk_config.generation_base_url or default_base_url(provider, protocol) or ''
+        CONFIG['BIANXIE_CHAT_MODEL'] = sdk_config.generation_model or 'gemini-3.1-pro-preview'
 
     # Pipeline settings
     CONFIG['MAX_ITERATIONS'] = sdk_config.max_iterations
@@ -92,7 +107,8 @@ def update_config_from_sdk(sdk_config) -> None:
 
 def call_unified_llm(contents: List[Any], provider: Optional[str] = None,
                      api_key: Optional[str] = None, model: Optional[str] = None,
-                     base_url: Optional[str] = None) -> Optional[str]:
+                     base_url: Optional[str] = None,
+                     protocol: Optional[str] = None) -> Optional[str]:
     """
     Unified LLM call interface - supports multiple providers (bianxie, openrouter, gemini)
 
@@ -111,22 +127,15 @@ def call_unified_llm(contents: List[Any], provider: Optional[str] = None,
     """
     # Determine the actual provider from parameter or CONFIG
     actual_provider = provider or CONFIG.get('LLM_PROVIDER', 'bianxie')
+    actual_protocol = normalize_protocol(actual_provider, protocol or CONFIG.get('LLM_PROTOCOL'))
 
     # Determine base_url, api_key, model based on provider
     if actual_provider == 'gemini':
-        # Gemini uses its own OpenAI-compatible endpoint
         actual_api_key = api_key or CONFIG.get('GOOGLE_API_KEY')
         actual_model = model or CONFIG.get('GEMINI_MODEL') or 'gemini-3.1-pro-preview'
-        # Gemini OpenAI-compatible endpoint: https://generativelanguage.googleapis.com/v1beta/openai/
         actual_base_url = base_url or CONFIG.get('GEMINI_BASE_URL')
         if not actual_base_url:
-            actual_base_url = 'https://generativelanguage.googleapis.com/v1beta/openai/'
-        # Ensure the URL ends with /openai/ for OpenAI-compatible calls
-        if actual_base_url and not actual_base_url.endswith('/openai/') and not actual_base_url.endswith('/openai'):
-            if actual_base_url.endswith('/'):
-                actual_base_url = actual_base_url + 'openai/'
-            else:
-                actual_base_url = actual_base_url + '/openai/'
+            actual_base_url = default_base_url(actual_provider, actual_protocol)
     elif actual_provider == 'openrouter':
         actual_base_url = base_url or CONFIG.get('OPENROUTER_BASE_URL') or CONFIG.get('BIANXIE_BASE_URL')
         actual_api_key = api_key or CONFIG.get('OPENROUTER_API_KEY') or CONFIG.get('BIANXIE_API_KEY')
@@ -140,14 +149,19 @@ def call_unified_llm(contents: List[Any], provider: Optional[str] = None,
         actual_model = model or CONFIG.get('BIANXIE_CHAT_MODEL')
         # Default Bianxie URL if nothing is set
         if not actual_base_url:
-            actual_base_url = 'https://api.bianxie.ai/v1'
+            actual_base_url = default_base_url(actual_provider, actual_protocol) or 'https://api.bianxie.ai/v1'
 
     # Debug logging
     print(f"[svg_figure_generator.call_unified_llm] provider: {actual_provider}")
+    print(f"[svg_figure_generator.call_unified_llm] protocol: {actual_protocol}")
     print(f"[svg_figure_generator.call_unified_llm] base_url: {actual_base_url}")
     print(f"[svg_figure_generator.call_unified_llm] model: {actual_model}")
     print(f"[svg_figure_generator.call_unified_llm] api_key present: {bool(actual_api_key)}, suffix: {'...' + actual_api_key[-4:] if actual_api_key and len(actual_api_key) > 4 else 'N/A'}")
 
+    if actual_protocol == GEMINI_NATIVE:
+        return call_gemini_native_text(contents, actual_api_key, actual_model, actual_base_url)
+
+    actual_base_url = normalize_openai_base_url(actual_base_url)
     return _call_openai_compatible(contents, actual_api_key, actual_model, actual_base_url)
 
 

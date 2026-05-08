@@ -11,6 +11,15 @@ from typing import Any, Dict, List, Optional, Union
 
 from PIL import Image
 
+from .api_protocol import (
+    GEMINI_NATIVE,
+    OPENAI_COMPATIBLE,
+    call_gemini_native_text,
+    default_base_url,
+    normalize_openai_base_url,
+    normalize_protocol,
+)
+
 
 class LLMClient:
     """
@@ -29,6 +38,7 @@ class LLMClient:
         base_url: str = "https://openrouter.ai/api/v1",
         model: str = "google/gemini-3.1-pro-preview",
         provider: str = "openrouter",
+        protocol: Optional[str] = None,
     ):
         """
         Initialize LLM client.
@@ -37,20 +47,17 @@ class LLMClient:
             api_key: API key for the provider
             base_url: Base URL for the API endpoint
             model: Model name to use
-            provider: Provider name (openrouter, bianxie, gemini)
+            provider: Provider name/preset (openrouter, bianxie, gemini, custom)
+            protocol: API protocol (openai-compatible, gemini-native)
         """
         self.api_key = api_key
-        self.base_url = base_url
+        self.protocol = normalize_protocol(provider, protocol)
+        self.base_url = base_url or default_base_url(provider, self.protocol)
         self.model = model
         self.provider = provider
 
-        # Adjust base_url for Gemini
-        if provider == "gemini" and base_url:
-            if not base_url.endswith("/openai/") and not base_url.endswith("/openai"):
-                if base_url.endswith("/"):
-                    self.base_url = base_url + "openai/"
-                else:
-                    self.base_url = base_url + "/openai/"
+        if self.protocol == OPENAI_COMPATIBLE:
+            self.base_url = normalize_openai_base_url(self.base_url)
 
     def call(
         self,
@@ -70,11 +77,21 @@ class LLMClient:
             Response text, or None on failure
         """
         try:
-            from openai import OpenAI
-
             if not self.api_key:
                 print("[LLMClient] ERROR: API key not provided!")
                 return None
+
+            if self.protocol == GEMINI_NATIVE:
+                return call_gemini_native_text(
+                    contents=contents,
+                    api_key=self.api_key,
+                    model=self.model,
+                    base_url=self.base_url,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+
+            from openai import OpenAI
 
             client = OpenAI(base_url=self.base_url, api_key=self.api_key)
 
@@ -134,11 +151,22 @@ class LLMClient:
             Response text, or None on failure
         """
         try:
-            from openai import OpenAI
-
             if not self.api_key:
                 print("[LLMClient] ERROR: API key not provided!")
                 return None
+
+            if self.protocol == GEMINI_NATIVE:
+                return call_gemini_native_text(
+                    contents=user_contents,
+                    api_key=self.api_key,
+                    model=self.model,
+                    base_url=self.base_url,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+
+            from openai import OpenAI
 
             client = OpenAI(base_url=self.base_url, api_key=self.api_key)
 
@@ -197,6 +225,7 @@ def create_client_from_config(config: "Config", purpose: str = "generation") -> 
             base_url=config.methodology_base_url,
             model=config.methodology_model,
             provider=config.methodology_provider,
+            protocol=config.methodology_protocol,
         )
     else:
         return LLMClient(
@@ -204,4 +233,5 @@ def create_client_from_config(config: "Config", purpose: str = "generation") -> 
             base_url=config.generation_base_url,
             model=config.generation_model,
             provider=config.generation_provider,
+            protocol=config.generation_protocol,
         )
