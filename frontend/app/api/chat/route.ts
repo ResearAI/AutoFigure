@@ -8,7 +8,11 @@ import {
     streamText,
 } from "ai"
 import { z } from "zod"
-import { getAIModel, supportsPromptCaching } from "@/lib/ai-providers"
+import {
+    getAIModel,
+    getCacheBreakpointProviderOptions,
+    supportsPromptCaching,
+} from "@/lib/ai-providers"
 import { findCachedResponse } from "@/lib/cached-responses"
 import {
     getTelemetryConfig,
@@ -230,13 +234,16 @@ async function handleChatRequest(req: Request): Promise<Response> {
     }
 
     // Get AI model with optional client overrides
-    const { model, providerOptions, headers, modelId } =
+    const { model, providerOptions, headers, modelId, provider } =
         getAIModel(clientOverrides)
 
-    // Check if model supports prompt caching
-    const shouldCache = supportsPromptCaching(modelId)
+    // Check if model supports prompt caching for the resolved provider
+    const shouldCache = supportsPromptCaching(modelId, provider)
+    // The cache marker shape differs per provider's AI SDK adapter
+    const cacheBreakpointProviderOptions =
+        getCacheBreakpointProviderOptions(provider)
     console.log(
-        `[Prompt Caching] ${shouldCache ? "ENABLED" : "DISABLED"} for model: ${modelId}`,
+        `[Prompt Caching] ${shouldCache ? "ENABLED" : "DISABLED"} for model: ${modelId} (provider: ${provider})`,
     )
 
     // Get the appropriate system prompt based on model (extended for Opus/Haiku 4.5)
@@ -313,9 +320,7 @@ ${lastMessageText}
             if (enhancedMessages[i].role === "assistant") {
                 enhancedMessages[i] = {
                     ...enhancedMessages[i],
-                    providerOptions: {
-                        bedrock: { cachePoint: { type: "default" } },
-                    },
+                    providerOptions: cacheBreakpointProviderOptions,
                 }
                 break // Only cache the last assistant message
             }
@@ -333,9 +338,7 @@ ${lastMessageText}
             role: "system" as const,
             content: systemMessage,
             ...(shouldCache && {
-                providerOptions: {
-                    bedrock: { cachePoint: { type: "default" } },
-                },
+                providerOptions: cacheBreakpointProviderOptions,
             }),
         },
         // Cache breakpoint 2: Previous and Current diagram XML context
@@ -343,9 +346,7 @@ ${lastMessageText}
             role: "system" as const,
             content: `${previousXml ? `Previous diagram XML (before user's last message):\n"""xml\n${previousXml}\n"""\n\n` : ""}Current diagram XML (AUTHORITATIVE - the source of truth):\n"""xml\n${xml || ""}\n"""\n\nIMPORTANT: The "Current diagram XML" is the SINGLE SOURCE OF TRUTH for what's on the canvas right now. The user can manually add, delete, or modify shapes directly in draw.io. Always count and describe elements based on the CURRENT XML, not on what you previously generated. If both previous and current XML are shown, compare them to understand what the user changed. When using edit_diagram, COPY search patterns exactly from the CURRENT XML - attribute order matters!`,
             ...(shouldCache && {
-                providerOptions: {
-                    bedrock: { cachePoint: { type: "default" } },
-                },
+                providerOptions: cacheBreakpointProviderOptions,
             }),
         },
     ]

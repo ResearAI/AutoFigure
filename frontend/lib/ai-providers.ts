@@ -24,6 +24,7 @@ interface ModelConfig {
     providerOptions?: any
     headers?: Record<string, string>
     modelId: string
+    provider: ProviderName
 }
 
 export interface ClientOverrides {
@@ -673,19 +674,58 @@ export function getAIModel(overrides?: ClientOverrides): ModelConfig {
         providerOptions = customProviderOptions
     }
 
-    return { model, providerOptions, headers, modelId }
+    return { model, providerOptions, headers, modelId, provider }
 }
 
+// Providers whose AI SDK adapters understand Claude prompt-caching markers.
+const PROMPT_CACHING_PROVIDERS: ProviderName[] = [
+    "bedrock",
+    "anthropic",
+    "openrouter",
+]
+
 /**
- * Check if a model supports prompt caching.
- * Currently only Claude models on Bedrock support prompt caching.
+ * Check if prompt caching can be applied for the given model and provider.
+ *
+ * Prompt caching requires both a Claude model and a provider whose AI SDK
+ * adapter understands a Claude cache marker. When the provider is omitted the
+ * check falls back to the model name only (backwards compatible).
  */
-export function supportsPromptCaching(modelId: string): boolean {
-    // Bedrock prompt caching is supported for Claude models
-    return (
+export function supportsPromptCaching(
+    modelId: string,
+    provider?: ProviderName,
+): boolean {
+    const isClaudeModel =
         modelId.includes("claude") ||
         modelId.includes("anthropic") ||
         modelId.startsWith("us.anthropic") ||
         modelId.startsWith("eu.anthropic")
-    )
+
+    if (!isClaudeModel) {
+        return false
+    }
+
+    // Without a provider we can only gate on the model name (legacy behaviour).
+    if (!provider) {
+        return true
+    }
+
+    return PROMPT_CACHING_PROVIDERS.includes(provider)
+}
+
+/**
+ * Build the provider-specific marker that flags a message for prompt caching.
+ *
+ * Each AI SDK adapter expects the cache marker under its own namespace:
+ * Bedrock uses `cachePoint`, while the Anthropic adapter (also used for
+ * OpenRouter Claude models) expects `cacheControl`.
+ */
+export function getCacheBreakpointProviderOptions(
+    provider: ProviderName,
+): Record<string, unknown> {
+    if (provider === "bedrock") {
+        return { bedrock: { cachePoint: { type: "default" } } }
+    }
+
+    return { anthropic: { cacheControl: { type: "ephemeral" } } }
 }
