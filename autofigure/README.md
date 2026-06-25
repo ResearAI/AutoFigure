@@ -7,7 +7,7 @@ AI-powered Scientific Figure Generation - Generate professional scientific figur
 - **Simple API**: Generate figures from text descriptions or papers
 - **Multiple Formats**: Output SVG and mxGraph XML (draw.io compatible)
 - **Image Enhancement**: Optional AI-powered image beautification with multiple variants
-- **Multiple Providers**: Support for OpenRouter, Bianxie, Gemini
+- **Multiple Providers**: Support for OpenRouter, Requesty, Bianxie, Gemini
 - **Content Types**: Optimized for papers, surveys, blogs, and textbooks
 
 ## Installation
@@ -171,9 +171,11 @@ result = agent.generate_from_file(
 | `generation_api_key` | API key for figure generation | Required |
 | `generation_base_url` | Base URL for API | Provider default |
 | `generation_model` | Model name | Provider default |
-| `generation_provider` | Provider: 'openrouter', 'bianxie', 'gemini' | 'openrouter' |
+| `generation_provider` | Provider: 'openrouter', 'requesty', 'bianxie', 'gemini' | 'openrouter' |
 
 Bianxie users can register at [bianxieai](https://bianxieai.com/autofigure). The Bianxie API uses the default base URL `https://api.bianxie.ai/v1`.
+
+Requesty is an OpenAI-compatible LLM gateway; with `generation_provider="requesty"` the default base URL is `https://router.requesty.ai/v1`.
 
 ### Methodology Extraction Settings
 

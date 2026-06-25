@@ -18,6 +18,7 @@ class LLMClient:
 
     Supports OpenAI-compatible APIs including:
     - OpenRouter
+    - Requesty
     - Bianxie
     - Google Gemini (via OpenAI-compatible endpoint)
     - Any OpenAI-compatible endpoint
@@ -37,7 +38,7 @@ class LLMClient:
             api_key: API key for the provider
             base_url: Base URL for the API endpoint
             model: Model name to use
-            provider: Provider name (openrouter, bianxie, gemini)
+            provider: Provider name (openrouter, requesty, bianxie, gemini)
         """
         self.api_key = api_key
         self.base_url = base_url
