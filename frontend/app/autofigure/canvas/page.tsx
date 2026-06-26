@@ -8,7 +8,7 @@ import IterationControlsFloating from "@/components/autofigure/IterationControls
 import BeautificationDialog from "@/components/autofigure/BeautificationDialog"
 import EnhancedImageGallery from "@/components/autofigure/EnhancedImageGallery"
 import GenerationOverlay from "@/components/autofigure/GenerationOverlay"
-import { extractDiagramXML } from "@/lib/utils"
+import { extractDiagramXML, sanitizeXmlForDrawio } from "@/lib/utils"
 import type { AutoFigureConfig } from "@/lib/autofigure-types"
 import {
     Sparkles,
@@ -120,8 +120,9 @@ function AutoFigureCanvasContent() {
     // Load XML into draw.io when currentXml changes
     useEffect(() => {
         if (drawioRef.current && currentXml && isDrawioReady) {
-            console.log('[AutoFigure Canvas] Loading XML into DrawIO, length:', currentXml.length)
-            drawioRef.current.load({ xml: currentXml })
+            const cleanXml = sanitizeXmlForDrawio(currentXml)
+            console.log('[AutoFigure Canvas] Loading XML into DrawIO, length:', cleanXml.length)
+            drawioRef.current.load({ xml: cleanXml })
         }
     }, [currentXml, isDrawioReady])
 
@@ -263,7 +264,7 @@ function AutoFigureCanvasContent() {
 
     const loadIteration = (xml: string) => {
         if (drawioRef.current && isDrawioReady) {
-            drawioRef.current.load({ xml })
+            drawioRef.current.load({ xml: sanitizeXmlForDrawio(xml) })
         }
     }
 
