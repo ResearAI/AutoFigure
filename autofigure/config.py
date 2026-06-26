@@ -37,7 +37,7 @@ class Config:
     generation_api_key: str = ""
     generation_base_url: Optional[str] = None
     generation_model: Optional[str] = None
-    generation_provider: str = "openrouter"  # openrouter, bianxie, gemini
+    generation_provider: str = "openrouter"  # openrouter, requesty, bianxie, gemini
 
     # Methodology extraction LLM settings (defaults to generation settings)
     methodology_api_key: Optional[str] = None
@@ -47,7 +47,7 @@ class Config:
 
     # Image enhancement settings
     enhancement_api_key: Optional[str] = None
-    enhancement_provider: str = "openrouter"  # openrouter, bianxie, gemini
+    enhancement_provider: str = "openrouter"  # openrouter, requesty, bianxie, gemini
     enhancement_model: Optional[str] = None
     enhancement_base_url: Optional[str] = None
     enhancement_input_type: str = "code2prompt"  # none, code, code2prompt
@@ -97,6 +97,7 @@ class Config:
         """Get default base URL for a provider."""
         urls = {
             "openrouter": "https://openrouter.ai/api/v1",
+            "requesty": "https://router.requesty.ai/v1",
             "bianxie": "https://api.bianxie.ai/v1",
             "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
         }
@@ -106,6 +107,7 @@ class Config:
         """Get default model for a provider."""
         models = {
             "openrouter": "google/gemini-3.1-pro-preview",
+            "requesty": "openai/gpt-4o-mini",
             "bianxie": "gemini-3.1-pro-preview",
             "gemini": "gemini-3.1-pro-preview",
         }
@@ -115,6 +117,7 @@ class Config:
         """Get default enhancement model for a provider."""
         models = {
             "openrouter": "google/gemini-3.1-flash-image-preview",
+            "requesty": "google/gemini-3.1-flash-image-preview",
             "bianxie": "gemini-3.1-flash-image-preview",
             "gemini": "gemini-3.1-flash-image-preview",
         }
@@ -165,10 +168,10 @@ class Config:
             AUTOFIGURE_API_KEY: Main API key for generation
             AUTOFIGURE_BASE_URL: Base URL for API
             AUTOFIGURE_MODEL: Model name
-            AUTOFIGURE_PROVIDER: Provider name (openrouter, bianxie, gemini)
+            AUTOFIGURE_PROVIDER: Provider name (openrouter, requesty, bianxie, gemini)
             AUTOFIGURE_METHODOLOGY_API_KEY: API key for methodology extraction
             AUTOFIGURE_ENHANCEMENT_API_KEY: API key for image enhancement
-            AUTOFIGURE_ENHANCEMENT_PROVIDER: Enhancement provider (openrouter, bianxie, gemini)
+            AUTOFIGURE_ENHANCEMENT_PROVIDER: Enhancement provider (openrouter, requesty, bianxie, gemini)
             AUTOFIGURE_ENHANCEMENT_MODEL: Enhancement model name
             AUTOFIGURE_ENHANCEMENT_BASE_URL: Enhancement API base URL
             AUTOFIGURE_ENHANCEMENT_INPUT_TYPE: Enhancement input type (none, code, code2prompt)
