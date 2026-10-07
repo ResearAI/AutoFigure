@@ -5,12 +5,8 @@
 
 # AutoFigure: Generating and Refining Publication-Ready Scientific Illustrations [ICLR 2026]
 
-[![ICLR 2026](https://img.shields.io/badge/ICLR-2026-blue?style=for-the-badge&logo=openreview)](https://openreview.net/forum?id=5N3z9JQJKq)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![HuggingFace](https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-FigureBench-orange?style=for-the-badge)](https://huggingface.co/datasets/WestlakeNLP/FigureBench)
-[![Website](https://img.shields.io/badge/Website-deepscientist.cc-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://deepscientist.cc/)
-[![Demo](https://img.shields.io/badge/Demo-HyperAI-red?style=for-the-badge&logo=rocket&logoColor=white)](https://hyper.ai/notebooks/autofigure-llm-based-automatic-scientific-illustration-generation-system)
+Abstract:
+Cellular senescence is characterized by pronounced alterations in redox homeostasis and intracellular pH, alongside dysregulated reactive oxygen species (ROS) signaling and impaired cellular function. Hypochlorous acid (HClO) and intracellular acidification serve as critical biomarkers of these senescence-associated changes. However, existing probes capable of simultaneously and independently visualizing HClO and intracellular pH in senescent cells remain limited. Here, we developed Rh-BN, a dual-channel fluorescent probe for simultaneous, orthogonal detection of HClO and acidic pH. Rh-BN exhibited excellent selectivity for HClO (detection limit: 0.74 μM; response time: 6–8 min) and enabled pH sensing in the range of 4.4–5.5. Distinct emission signals at 535 and 585 nm allowed for spectrally resolved detection of the two analytes. Rh-BN demonstrated excellent photostability and low cytotoxicity (>90% cell viability), enabling quantitative ratiometric imaging in living HeLa cells. Moreover, Rh-BN successfully visualized elevated HClO levels and microenvironmental acidification in a doxorubicin-induced cellular senescence model, revealing coordinated oxidative and pH alterations associated with the senescent phenotype. These findings establish Rh-BN as a useful tool for monitoring redox and pH dysregulation in cellular senescence, with potential applications in cancer, neurodegeneration, and inflammatory diseases.
 
 <p align="center">
   <strong>From Text to Publication-Ready Diagrams</strong><br>
