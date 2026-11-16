@@ -364,15 +364,16 @@ Repository metadata and usage guidance:
 
 ## 🙏 Acknowledgments
 
-We thank the following sponsor for supporting this project:
+We thank the following sponsors for supporting this project:
 
 | Sponsor | Link | Support | Note |
 |---|---|---|---|
 | Bianxie AI Aggregate API | [https://api.bianxie.ai](https://bianxieai.com/autofigure) | Provides mainland China-friendly access to AutoFigure's recommended Gemini models | No foreign credit card required |
+| AtomGit | [AutoFigure on AtomGit](https://atomgit.com/TuchuanLin/AutoFigure) | Hosts this project in China, helping users in mainland China access the repository and download releases more quickly | China-based hosting |
 
 This project is licensed under the MIT License - see `LICENSE` for details.
-Name and logo usage are covered separately in `TRADEMARK.md`.
 
+Name and logo usage are covered separately in `TRADEMARK.md`.
 ---
 
 ## More From ResearAI
