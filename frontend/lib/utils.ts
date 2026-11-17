@@ -54,6 +54,21 @@ export function formatXML(xml: string, indent: string = "  "): string {
 }
 
 /**
+ * Sanitize mxGraph XML for draw.io embed API.
+ * Removes <Array> elements and orphaned <mxPoint> elements that cause
+ * "Could not add object Array" errors in the draw.io embed component.
+ * Edge waypoints are removed but edges still connect correctly.
+ */
+export function sanitizeXmlForDrawio(xml: string): string {
+    if (!xml) return xml
+    // Remove <Array ...>...</Array> blocks (including their child mxPoints)
+    let sanitized = xml.replace(/<Array\b[^>]*>[\s\S]*?<\/Array>/g, "")
+    // Remove orphaned <mxPoint> without 'as' attribute
+    sanitized = sanitized.replace(/<mxPoint\b(?![^>]*\sas=)[^>]*\/>/g, "")
+    return sanitized
+}
+
+/**
  * Efficiently converts a potentially incomplete XML string to a legal XML string by closing any open tags properly.
  * Additionally, if an <mxCell> tag does not have an mxGeometry child (e.g. <mxCell id="3">),
  * it removes that tag from the output.
